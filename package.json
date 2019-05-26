@@ -1,0 +1,21 @@
+{
+  "name": "env-gen",
+  "version": "0.0.1",
+  "description": "A TypeScript-based web audio envelope generator",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "web",
+    "audio"
+  ],
+  "author": "Brian Ginsburg",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^3.4.5"
+  },
+  "dependencies": {
+    "standardized-audio-context": "^20.1.0"
+  }
+}
