@@ -1,7 +1,14 @@
 import { IAudioContext, IAudioParam, IGainNode, IConstantSourceNode } from "standardized-audio-context";
 
 class Envelope {
-  settings: IEnvelopeSettings;
+  settings: IEnvelopeSettings = {
+    initialLevel: 0,
+    attackTime: 0,
+    attackMaxLevel: 1,
+    decayTime: 0,
+    sustainLevel: 1,
+    releaseTime: 0
+  };
   audioContext: IAudioContext;
   targetParam: IAudioParam;
   gateOpenAt: number;
@@ -9,8 +16,15 @@ class Envelope {
   endReleaseAt: number;
 
   constructor(audioContext: IAudioContext, settings: IEnvelopeSettings) {
-    this.settings = settings;
     this.audioContext = audioContext;
+
+    this.settings.attackTime = settings.attackTime;
+    this.settings.decayTime = settings.decayTime;
+    this.settings.sustainLevel = settings.sustainLevel;
+    this.settings.releaseTime = settings.releaseTime;
+
+    if (settings.initialLevel) this.settings.initialLevel = settings.initialLevel;
+    if (settings.attackMaxLevel) this.settings.attackMaxLevel = settings.attackMaxLevel;
   }
 
   connect(targetParam: IAudioParam): void {
@@ -20,7 +34,7 @@ class Envelope {
   openGate(gateOpenAt: number): void {
     this.gateOpenAt = gateOpenAt;
 
-    this.targetParam.setValueAtTime(0.0001, gateOpenAt);
+    this.targetParam.setValueAtTime(this.settings.initialLevel, gateOpenAt);
     this.targetParam.linearRampToValueAtTime(1, gateOpenAt + this.settings.attackTime);
     this.targetParam.exponentialRampToValueAtTime(
       this.settings.sustainLevel,
@@ -44,9 +58,10 @@ class Envelope {
 }
 
 interface IEnvelopeSettings {
-  // initialLevel: number;
+  initialLevel?: number;
   // delayTime: number;
   attackTime: number;
+  attackMaxLevel?: number;
   // holdTime: number;
   decayTime: number;
   sustainLevel: number;
