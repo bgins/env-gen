@@ -61,14 +61,11 @@ class Envelope {
     if (this.gateOpen) {
       if (retriggerAt < this.startDecayAt) {
         console.log("retrigger in attack phase");
-        // do nothing?
       } else if (retriggerAt >= this.startDecayAt && retriggerAt < this.startSustainAt) {
         console.log("retrigger in decay phase");
 
-        // cancelAndHoldAtTime now
         this.targetParam.cancelAndHoldAtTime(retriggerAt);
 
-        // compute current value
         const currentValue =
           this.settings.attackMaxLevel *
           Math.pow(
@@ -76,26 +73,13 @@ class Envelope {
             retriggerAt - this.startDecayAt / this.settings.decayTime
           );
 
-        // compute would-have-been start time given current value and attackTime
-        const attackWouldHaveStartedAt = this.linearStartTime(retriggerAt, currentValue);
-
-        this.startDecayAt = attackWouldHaveStartedAt + this.settings.attackTime;
-        this.startSustainAt = this.startDecayAt + this.settings.decayTime;
-
-        this.targetParam.linearRampToValueAtTime(this.settings.attackMaxLevel, this.startDecayAt);
-        this.targetParam.exponentialRampToValueAtTime(this.settings.sustainLevel, this.startSustainAt);
+        this.reschedule(retriggerAt, currentValue);
       } else {
         console.log("retrigger in sustain phase");
 
         this.targetParam.cancelAndHoldAtTime(retriggerAt);
 
-        const attackWouldHaveStartedAt = this.linearStartTime(retriggerAt, this.settings.sustainLevel);
-
-        this.startDecayAt = attackWouldHaveStartedAt + this.settings.attackTime;
-        this.startSustainAt = this.startDecayAt + this.settings.decayTime;
-
-        this.targetParam.linearRampToValueAtTime(this.settings.attackMaxLevel, this.startDecayAt);
-        this.targetParam.exponentialRampToValueAtTime(this.settings.sustainLevel, this.startSustainAt);
+        this.reschedule(retriggerAt, this.settings.sustainLevel);
       }
     } else {
       if (retriggerAt > this.gateClosedAt && retriggerAt <= this.gateClosedAt + this.settings.releaseTime) {
@@ -107,13 +91,7 @@ class Envelope {
           this.settings.sustainLevel *
           Math.pow(0.0001 / this.settings.sustainLevel, retriggerAt - this.gateClosedAt / this.settings.releaseTime);
 
-        const attackWouldHaveStartedAt = this.linearStartTime(retriggerAt, currentValue);
-
-        this.startDecayAt = attackWouldHaveStartedAt + this.settings.attackTime;
-        this.startSustainAt = this.startDecayAt + this.settings.decayTime;
-
-        this.targetParam.linearRampToValueAtTime(this.settings.attackMaxLevel, this.startDecayAt);
-        this.targetParam.exponentialRampToValueAtTime(this.settings.sustainLevel, this.startSustainAt);
+        this.reschedule(retriggerAt, currentValue);
       } else {
         console.log("retrigger after envelope completed");
         this.targetParam.cancelAndHoldAtTime(retriggerAt);
@@ -122,7 +100,18 @@ class Envelope {
     }
   }
 
-  private linearStartTime(currentTime: number, currentValue: number): number {
+  private reschedule(retriggerAt: number, currentValue: number): void {
+    // compute would-have-been start time given current value and attackTime
+    const attackWouldHaveStartedAt = this.linearAttackStartTime(retriggerAt, currentValue);
+
+    this.startDecayAt = attackWouldHaveStartedAt + this.settings.attackTime;
+    this.startSustainAt = this.startDecayAt + this.settings.decayTime;
+
+    this.targetParam.linearRampToValueAtTime(this.settings.attackMaxLevel, this.startDecayAt);
+    this.targetParam.exponentialRampToValueAtTime(this.settings.sustainLevel, this.startSustainAt);
+  }
+
+  private linearAttackStartTime(currentTime: number, currentValue: number): number {
     return (
       currentTime -
       ((this.settings.attackTime * (currentValue - this.settings.initialLevel)) / this.settings.attackMaxLevel -
