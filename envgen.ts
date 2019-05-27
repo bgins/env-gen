@@ -64,7 +64,7 @@ class Envelope {
       } else if (retriggerAt >= this.startDecayAt && retriggerAt < this.startSustainAt) {
         console.log("retrigger in decay phase");
 
-        this.targetParam.cancelAndHoldAtTime(retriggerAt);
+        // this.targetParam.cancelAndHoldAtTime(retriggerAt);
 
         const currentValue =
           this.settings.attackMaxLevel *
@@ -77,7 +77,7 @@ class Envelope {
       } else {
         console.log("retrigger in sustain phase");
 
-        this.targetParam.cancelAndHoldAtTime(retriggerAt);
+        // this.targetParam.cancelAndHoldAtTime(retriggerAt);
 
         this.reschedule(retriggerAt, this.settings.sustainLevel);
       }
@@ -85,22 +85,26 @@ class Envelope {
       if (retriggerAt > this.gateClosedAt && retriggerAt <= this.gateClosedAt + this.settings.releaseTime) {
         console.log("retrigger in release phase");
 
-        this.targetParam.cancelAndHoldAtTime(retriggerAt);
+        // this.targetParam.cancelAndHoldAtTime(retriggerAt);
 
         const currentValue =
           this.settings.sustainLevel *
           Math.pow(0.0001 / this.settings.sustainLevel, retriggerAt - this.gateClosedAt / this.settings.releaseTime);
 
         this.reschedule(retriggerAt, currentValue);
+        this.gateOpen = true;
       } else {
         console.log("retrigger after envelope completed");
-        this.targetParam.cancelAndHoldAtTime(retriggerAt);
+        // this.targetParam.cancelAndHoldAtTime(retriggerAt);
         this.openGate(retriggerAt);
       }
     }
   }
 
   private reschedule(retriggerAt: number, currentValue: number): void {
+    this.targetParam.cancelScheduledValues(retriggerAt);
+    this.targetParam.setValueAtTime(currentValue, retriggerAt);
+
     // compute would-have-been start time given current value and attackTime
     const attackWouldHaveStartedAt = this.linearAttackStartTime(retriggerAt, currentValue);
 
