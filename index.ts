@@ -7,9 +7,9 @@ let oscillatorNode = null;
 const amp = audioContext.createGain();
 amp.gain.setValueAtTime(0.1, audioContext.currentTime);
 
-// const envSettings = { attackTime: 0.5, decayTime: 0.5, sustainLevel: 0.3, releaseTime: 1 };
+const envSettings = { attackTime: 1, decayTime: 1, sustainLevel: 0.1, releaseTime: 1 };
 // const envSettings = { initialLevel: 0.5, attackTime: 0.5, decayTime: 0.5, sustainLevel: 1, releaseTime: 1 };
-const envSettings = { attackTime: 0.5, attackMaxLevel: 0.3, decayTime: 0.5, sustainLevel: 0.3, releaseTime: 1 };
+// const envSettings = { attackTime: 1, attackMaxLevel: 0.3, decayTime: 1, sustainLevel: 0.3, releaseTime: 1 };
 const ampEnv = new Envelope(audioContext, envSettings);
 
 const masterGain = audioContext.createGain();
@@ -20,14 +20,18 @@ ampEnv.connect(amp.gain);
 masterGain.connect(audioContext.destination);
 
 document.getElementById("start").addEventListener("click", () => {
-  oscillatorNode = audioContext.createOscillator();
-  oscillatorNode.type = "sine";
-  oscillatorNode.connect(amp);
+  if (audioContext.currentTime < ampEnv.getEndTime()) {
+    ampEnv.retrigger(audioContext.currentTime);
+  } else {
+    oscillatorNode = audioContext.createOscillator();
+    oscillatorNode.type = "sine";
+    oscillatorNode.connect(amp);
 
-  const now = audioContext.currentTime;
+    const now = audioContext.currentTime;
 
-  oscillatorNode.start(now);
-  ampEnv.openGate(now);
+    oscillatorNode.start(now);
+    ampEnv.openGate(now);
+  }
 });
 
 document.getElementById("stop").addEventListener("click", () => {
@@ -36,6 +40,4 @@ document.getElementById("stop").addEventListener("click", () => {
 
   const stopAt = now + envSettings.releaseTime;
   oscillatorNode.stop(stopAt);
-
-  oscillatorNode = null;
 });
