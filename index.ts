@@ -7,9 +7,18 @@ let oscillatorNode = null;
 const amp = audioContext.createGain();
 amp.gain.setValueAtTime(0.1, audioContext.currentTime);
 
-const envSettings = { attackTime: 2, decayTime: 2, sustainLevel: 0.5, releaseTime: 5 };
-// const envSettings = { initialLevel: 0.5, attackTime: 0.5, decayTime: 0.5, sustainLevel: 1, releaseTime: 1 };
-// const envSettings = { attackTime: 1, attackMaxLevel: 0.3, decayTime: 1, sustainLevel: 0.3, releaseTime: 1 };
+// const envSettings = { attackTime: 2, decayTime: 2, sustainLevel: 0.5, releaseTime: 5 };
+// const envSettings = { initialLevel: 0.5, attackTime: 2, decayTime: 2, sustainLevel: 0.3, releaseTime: 3 };
+const envSettings = { attackTime: 2, attackFinalLevel: 0.3, decayTime: 2, sustainLevel: 0.3, releaseTime: 2 };
+// const envSettings = {
+//   initialLevel: 0.8,
+//   attackTime: 2,
+//   attackFinalLevel: 0.3,
+//   decayTime: 2,
+//   sustainLevel: 0.5,
+//   releaseTime: 3
+// };
+
 const ampEnv = new Envelope(audioContext, envSettings);
 
 const masterGain = audioContext.createGain();

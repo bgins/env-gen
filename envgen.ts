@@ -4,7 +4,7 @@ class Envelope {
   settings: IEnvelopeSettings = {
     initialLevel: 0,
     attackTime: 0,
-    attackMaxLevel: 1,
+    attackFinalLevel: 1,
     decayTime: 0,
     sustainLevel: 1,
     releaseTime: 0
@@ -28,7 +28,7 @@ class Envelope {
     this.settings.releaseTime = settings.releaseTime;
 
     if (settings.initialLevel) this.settings.initialLevel = settings.initialLevel;
-    if (settings.attackMaxLevel) this.settings.attackMaxLevel = settings.attackMaxLevel;
+    if (settings.attackFinalLevel) this.settings.attackFinalLevel = settings.attackFinalLevel;
   }
 
   connect(targetParam: IAudioParam): void {
@@ -36,15 +36,16 @@ class Envelope {
   }
 
   openGate(gateOpenAt: number): void {
-    this.gateOpen = true;
     this.gateOpenAt = gateOpenAt;
     this.startDecayAt = gateOpenAt + this.settings.attackTime;
     this.startSustainAt = this.startDecayAt + this.settings.decayTime;
-    this.endAt = Infinity;
 
     this.targetParam.setValueAtTime(this.settings.initialLevel, gateOpenAt);
-    this.targetParam.linearRampToValueAtTime(this.settings.attackMaxLevel, this.startDecayAt);
+    this.targetParam.linearRampToValueAtTime(this.settings.attackFinalLevel, this.startDecayAt);
     this.targetParam.exponentialRampToValueAtTime(this.settings.sustainLevel, this.startSustainAt);
+
+    this.gateOpen = true;
+    this.endAt = Infinity;
   }
 
   closeGate(gateClosedAt: number): void {
@@ -52,28 +53,28 @@ class Envelope {
     this.endAt = gateClosedAt + this.settings.releaseTime;
 
     if (this.gateOpen) {
-      // if (gateClosedAt < this.startDecayAt) {
-      //   this.valueAtGateClose =
-      //     this.settings.initialLevel +
-      //     (this.settings.attackMaxLevel - this.settings.initialLevel) * // use abs value?
-      //       ((gateClosedAt - this.gateOpenAt) / this.settings.attackTime);
-      // } else if (gateClosedAt >= this.startDecayAt && gateClosedAt < this.startSustainAt) {
-      //   this.valueAtGateClose =
-      //     this.settings.attackMaxLevel *
-      //     Math.pow(
-      //       this.settings.sustainLevel / this.settings.attackMaxLevel,
-      //       (gateClosedAt - this.startDecayAt) / this.settings.decayTime
-      //     );
-      // } else {
-      //   this.valueAtGateClose = this.settings.sustainLevel;
-      // }
+      // these values should be calculated a bit into the future to account for the delay before we schedule them
+      if (gateClosedAt < this.startDecayAt) {
+        this.valueAtGateClose =
+          this.settings.initialLevel +
+          (this.settings.attackFinalLevel - this.settings.initialLevel) * // use abs value?
+            ((gateClosedAt - this.gateOpenAt) / this.settings.attackTime);
+      } else if (gateClosedAt >= this.startDecayAt && gateClosedAt < this.startSustainAt) {
+        this.valueAtGateClose =
+          this.settings.attackFinalLevel *
+          Math.pow(
+            this.settings.sustainLevel / this.settings.attackFinalLevel,
+            (gateClosedAt - this.startDecayAt) / this.settings.decayTime
+          );
+      } else {
+        this.valueAtGateClose = this.settings.sustainLevel;
+      }
 
-      this.valueAtGateClose = this.targetParam.value;
       this.targetParam.cancelScheduledValues(gateClosedAt);
       this.targetParam.setValueAtTime(this.valueAtGateClose, gateClosedAt);
       this.targetParam.exponentialRampToValueAtTime(0.0001, this.endAt);
+      this.gateOpen = false;
     }
-    this.gateOpen = false;
   }
 
   getEndTime(): number {
@@ -81,6 +82,7 @@ class Envelope {
   }
 
   retrigger(retriggerAt: number): void {
+    // these values should be calculated a bit into the future to account for the delay before we schedule them
     if (this.gateOpen) {
       if (retriggerAt < this.startDecayAt) {
         console.log("retrigger in attack phase");
@@ -88,9 +90,9 @@ class Envelope {
         console.log("retrigger in decay phase");
 
         const currentValue =
-          this.settings.attackMaxLevel *
+          this.settings.attackFinalLevel *
           Math.pow(
-            this.settings.sustainLevel / this.settings.attackMaxLevel,
+            this.settings.sustainLevel / this.settings.attackFinalLevel,
             (retriggerAt - this.startDecayAt) / this.settings.decayTime
           );
 
@@ -102,10 +104,6 @@ class Envelope {
     } else {
       if (retriggerAt > this.gateClosedAt && retriggerAt <= this.gateClosedAt + this.settings.releaseTime) {
         console.log("retrigger in release phase");
-
-        // const currentValue =
-        //   this.settings.sustainLevel *
-        //   Math.pow(0.0001 / this.settings.sustainLevel, (retriggerAt - this.gateClosedAt) / this.settings.releaseTime);
 
         const currentValue =
           this.valueAtGateClose *
@@ -125,29 +123,24 @@ class Envelope {
 
   private reschedule(retriggerAt: number, currentValue: number): void {
     console.log("rescheduling");
-    // this.targetParam.cancelAndHoldAtTime(retriggerAt);
 
+    // this.targetParam.cancelAndHoldAtTime(retriggerAt);
     this.targetParam.cancelScheduledValues(retriggerAt);
     this.targetParam.setValueAtTime(currentValue, retriggerAt);
 
     // compute would-have-been start time given current value and attackTime
-    const attackWouldHaveStartedAt = this.linearAttackStartTime(retriggerAt, currentValue);
+    const attackWouldHaveStartedAt =
+      retriggerAt -
+      ((this.settings.attackTime * (currentValue - this.settings.initialLevel)) / this.settings.attackFinalLevel -
+        this.settings.initialLevel);
 
     this.startDecayAt = attackWouldHaveStartedAt + this.settings.attackTime;
     this.startSustainAt = this.startDecayAt + this.settings.decayTime;
 
-    this.targetParam.linearRampToValueAtTime(this.settings.attackMaxLevel, this.startDecayAt);
+    this.targetParam.linearRampToValueAtTime(this.settings.attackFinalLevel, this.startDecayAt);
     this.targetParam.exponentialRampToValueAtTime(this.settings.sustainLevel, this.startSustainAt);
 
     this.gateOpenAt = attackWouldHaveStartedAt;
-  }
-
-  private linearAttackStartTime(currentTime: number, currentValue: number): number {
-    return (
-      currentTime -
-      ((this.settings.attackTime * (currentValue - this.settings.initialLevel)) / this.settings.attackMaxLevel -
-        this.settings.initialLevel)
-    );
   }
 }
 
@@ -155,14 +148,14 @@ interface IEnvelopeSettings {
   initialLevel?: number;
   // delayTime: number;
   attackTime: number;
-  attackMaxLevel?: number;
+  attackFinalLevel?: number;
   // holdTime: number;
   decayTime: number;
   sustainLevel: number;
   releaseTime: number;
-  // attackCurveType: string?
-  // decayCurveType: string?
-  // releaseCurveType: string?
+  // attackCurveType?: string;
+  // decayCurveType?: string;
+  // releaseCurveType?: string;
   // velocityScaling: number;
 }
 
