@@ -16,6 +16,7 @@ class Envelope {
   startDecayAt: number;
   startSustainAt: number;
   gateClosedAt: number;
+  valueAtGateClose: number;
   endAt: number;
 
   constructor(audioContext: IAudioContext, settings: IEnvelopeSettings) {
@@ -47,10 +48,32 @@ class Envelope {
   }
 
   closeGate(gateClosedAt: number): void {
-    this.gateOpen = false;
     this.gateClosedAt = gateClosedAt;
     this.endAt = gateClosedAt + this.settings.releaseTime;
-    this.targetParam.exponentialRampToValueAtTime(0.0001, this.endAt);
+
+    if (this.gateOpen) {
+      // if (gateClosedAt < this.startDecayAt) {
+      //   this.valueAtGateClose =
+      //     this.settings.initialLevel +
+      //     (this.settings.attackMaxLevel - this.settings.initialLevel) * // use abs value?
+      //       ((gateClosedAt - this.gateOpenAt) / this.settings.attackTime);
+      // } else if (gateClosedAt >= this.startDecayAt && gateClosedAt < this.startSustainAt) {
+      //   this.valueAtGateClose =
+      //     this.settings.attackMaxLevel *
+      //     Math.pow(
+      //       this.settings.sustainLevel / this.settings.attackMaxLevel,
+      //       (gateClosedAt - this.startDecayAt) / this.settings.decayTime
+      //     );
+      // } else {
+      //   this.valueAtGateClose = this.settings.sustainLevel;
+      // }
+
+      this.valueAtGateClose = this.targetParam.value;
+      this.targetParam.cancelScheduledValues(gateClosedAt);
+      this.targetParam.setValueAtTime(this.valueAtGateClose, gateClosedAt);
+      this.targetParam.exponentialRampToValueAtTime(0.0001, this.endAt);
+    }
+    this.gateOpen = false;
   }
 
   getEndTime(): number {
@@ -64,44 +87,46 @@ class Envelope {
       } else if (retriggerAt >= this.startDecayAt && retriggerAt < this.startSustainAt) {
         console.log("retrigger in decay phase");
 
-        // this.targetParam.cancelAndHoldAtTime(retriggerAt);
-
         const currentValue =
           this.settings.attackMaxLevel *
           Math.pow(
             this.settings.sustainLevel / this.settings.attackMaxLevel,
-            retriggerAt - this.startDecayAt / this.settings.decayTime
+            (retriggerAt - this.startDecayAt) / this.settings.decayTime
           );
 
         this.reschedule(retriggerAt, currentValue);
       } else {
         console.log("retrigger in sustain phase");
-
-        // this.targetParam.cancelAndHoldAtTime(retriggerAt);
-
         this.reschedule(retriggerAt, this.settings.sustainLevel);
       }
     } else {
       if (retriggerAt > this.gateClosedAt && retriggerAt <= this.gateClosedAt + this.settings.releaseTime) {
         console.log("retrigger in release phase");
 
-        // this.targetParam.cancelAndHoldAtTime(retriggerAt);
+        // const currentValue =
+        //   this.settings.sustainLevel *
+        //   Math.pow(0.0001 / this.settings.sustainLevel, (retriggerAt - this.gateClosedAt) / this.settings.releaseTime);
 
         const currentValue =
-          this.settings.sustainLevel *
-          Math.pow(0.0001 / this.settings.sustainLevel, retriggerAt - this.gateClosedAt / this.settings.releaseTime);
+          this.valueAtGateClose *
+          Math.pow(0.0001 / this.valueAtGateClose, (retriggerAt - this.gateClosedAt) / this.settings.releaseTime);
 
         this.reschedule(retriggerAt, currentValue);
+
         this.gateOpen = true;
+        this.endAt = Infinity;
       } else {
+        // this case is not likely to be reached
         console.log("retrigger after envelope completed");
-        // this.targetParam.cancelAndHoldAtTime(retriggerAt);
         this.openGate(retriggerAt);
       }
     }
   }
 
   private reschedule(retriggerAt: number, currentValue: number): void {
+    console.log("rescheduling");
+    // this.targetParam.cancelAndHoldAtTime(retriggerAt);
+
     this.targetParam.cancelScheduledValues(retriggerAt);
     this.targetParam.setValueAtTime(currentValue, retriggerAt);
 
@@ -113,6 +138,8 @@ class Envelope {
 
     this.targetParam.linearRampToValueAtTime(this.settings.attackMaxLevel, this.startDecayAt);
     this.targetParam.exponentialRampToValueAtTime(this.settings.sustainLevel, this.startSustainAt);
+
+    this.gateOpenAt = attackWouldHaveStartedAt;
   }
 
   private linearAttackStartTime(currentTime: number, currentValue: number): number {
