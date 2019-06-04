@@ -1,5 +1,5 @@
 import { AudioContext } from "standardized-audio-context";
-import Envelope from "./envgen";
+import { Envelope } from "./env-gen";
 
 const audioContext = new AudioContext();
 let oscillatorNode = null;
@@ -7,9 +7,9 @@ let oscillatorNode = null;
 const amp = audioContext.createGain();
 amp.gain.setValueAtTime(0.1, audioContext.currentTime);
 
-// const envSettings = { attackTime: 2, decayTime: 2, sustainLevel: 0.5, releaseTime: 5 };
+const envSettings = { attackTime: 1, decayTime: 1, sustainLevel: 0.5, releaseTime: 1 };
 // const envSettings = { initialLevel: 0.5, attackTime: 2, decayTime: 2, sustainLevel: 0.3, releaseTime: 3 };
-const envSettings = { attackTime: 2, attackFinalLevel: 0.3, decayTime: 2, sustainLevel: 0.3, releaseTime: 2 };
+// const envSettings = { attackTime: 2, attackFinalLevel: 0.3, decayTime: 2, sustainLevel: 0.3, releaseTime: 2 };
 // const envSettings = {
 //   initialLevel: 0.8,
 //   attackTime: 2,
@@ -50,6 +50,5 @@ document.getElementById("stop").addEventListener("click", () => {
 
   const stopAt = ampEnv.getEndTime();
 
-  // this get scheduled to stop before it should if we have a retrigger
   oscillatorNode.stop(stopAt);
 });
