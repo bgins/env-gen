@@ -31,7 +31,7 @@ masterGain.connect(audioContext.destination);
 document.getElementById("start").addEventListener("click", () => {
   if (audioContext.currentTime < ampEnv.getEndTime()) {
     oscillatorNode.stop(audioContext.currentTime + 1000);
-    ampEnv.retrigger(audioContext.currentTime);
+    ampEnv.retrigger(audioContext.currentTime, { attackTime: 0.1, decayTime: 2, sustainLevel: 0.2, releaseTime: 3 });
   } else {
     oscillatorNode = audioContext.createOscillator();
     oscillatorNode.type = "sine";
